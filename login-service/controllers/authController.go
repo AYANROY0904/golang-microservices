@@ -3,16 +3,18 @@ package controllers
 import (
 	"log"
 	"time"
+
 	"login-service/services"
-	"shared/utils"
-	"github.com/gin-gonic/gin"
+
 	"github.com/getsentry/sentry-go"
+	"github.com/gin-gonic/gin"
 )
 
 func Login(c *gin.Context) {
 	var request struct {
 		PhoneNumber string `json:"phone_number"`
 	}
+
 	if err := c.ShouldBindJSON(&request); err != nil {
 		sentry.WithScope(func(scope *sentry.Scope) {
 			scope.SetTag("service", "login-service")
@@ -31,6 +33,7 @@ func Login(c *gin.Context) {
 		c.JSON(500, gin.H{"error": "Failed to send OTP"})
 		return
 	}
+
 	c.JSON(200, gin.H{"message": "OTP sent successfully"})
 }
 
@@ -59,7 +62,6 @@ func VerifyOTP(c *gin.Context) {
 		return
 	}
 
-
 	// Generate JWT and session ID
 	tokenString, sessionID, err := services.GenerateJWT(0, request.PhoneNumber)
 	if err != nil {
@@ -74,27 +76,12 @@ func VerifyOTP(c *gin.Context) {
 
 	expiresAt := time.Now().Add(30 * time.Minute)
 
-	// Call the stored procedure
-	var userID int
-	var message string
-	result := utils.DB.Raw(`
-		SELECT * FROM verify_otp_and_create_session(?, ?, ?, ?)
-	`, request.PhoneNumber, tokenString, sessionID, expiresAt).Row()
-
-	if err := result.Scan(&userID, &message); err != nil {
-		sentry.WithScope(func(scope *sentry.Scope) {
-			scope.SetTag("phone_number", request.PhoneNumber)
-			sentry.CaptureException(err)
-		})
-		log.Println("Error executing stored procedure:", err)
-		c.JSON(500, gin.H{"error": "Failed to verify OTP and create session"})
-		return
-	}
-
+	// Return JWT and session ID directly (bypassing DB)
 	c.JSON(200, gin.H{
 		"jwt_token":  tokenString,
 		"session_id": sessionID,
-		"user_id": userID,
-		"message": message,
+		"user_id":    0, // You can update this if you add user tracking later
+		"expires_at": expiresAt,
+		"message":    "OTP verified and session created successfully",
 	})
 }

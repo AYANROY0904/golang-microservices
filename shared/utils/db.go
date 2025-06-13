@@ -3,9 +3,9 @@ package utils
 import (
 	"fmt"
 	"log"
+
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	_ "github.com/lib/pq" 
 )
 
 var DB *gorm.DB
